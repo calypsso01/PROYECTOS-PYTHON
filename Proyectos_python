@@ -1,0 +1,286 @@
+PROYECTO 107-DETECCIONySegDeImagenes
+footvolleyball.mp4 TOMA UN VIDEO
+Crea un archivo.py
+import cv2
+import time
+import math
+
+p1 = 530
+p2 = 300
+
+xs = []
+ys = []
+
+video = cv2.VideoCapture("footvolleyball.mp4")
+# Cargar rastreador 
+tracker = cv2.TrackerCSRT_create()
+
+# Leer el primer cuadro del video
+success,img = video.read()
+
+# Seleccionar el cuadro delimitador en la imagen
+bbox = cv2.selectROI("Rastreando",img,False)
+
+# Inicializar el rastreador en la imagen y el cuadro delimitador
+tracker.init(img,bbox)
+
+def goal_track(img,bbox):
+    x,y,w,h = int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3])
+    c1 = x + int(w/2)
+    c2 = y + int(h/2)
+    cv2.circle(img,(c1,c2),2,(0,0,255),5)
+
+    cv2.circle(img,(int(p1),int(p2)),2,(0,255,0),3)
+    dist = math.sqrt(((c1-p1)**2) + (c2-p2)**2)
+    print(dist)
+
+    if(dist<=20):
+        cv2.putText(img,"Objetivo",(300,90),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,0),2)
+
+    xs.append(c1)
+    ys.append(c2)
+
+    for i in range(len(xs)-1):
+        cv2.circle(img,(xs[i],ys[i]),2,(0,0,255),5)
+
+def drawBox(img,bbox):
+    x,y,w,h = int(bbox[0]),int(bbox[1]),int(bbox[2]),int(bbox[3])
+    cv2.rectangle(img,(x,y),((x+w),(y+h)),(255,0,255),3,1)
+    cv2.putText(img,"Rastreando",(75,90),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,255,0),2)
+
+
+while True:
+    check,img = video.read()   
+    success,bbox = tracker.update(img)
+
+    if success:
+        drawBox(img,bbox)
+    else:
+        cv2.putText(img,"Perdido",(75,90),cv2.FONT_HERSHEY_SIMPLEX,0.7,(0,0,255),2)
+
+
+    goal_track(img,bbox)
+
+    cv2.imshow("Resultado",img)
+            
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        print("Cerrando")
+        break
+
+video.release()
+cv2.destroyALLwindows() 
+
+PROYECTO108_GESTOS CON LA MANO
+Crea tu archivo .py
+import cv2
+import mediapipe as mp
+
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands()
+mp_draw = mp.solutions.drawing_utils
+cap = cv2.VideoCapture(0)
+
+finger_tips = [8, 12, 16, 20]
+thumb_tip = 4
+
+while True:
+    ret,img = cap.read()
+    img = cv2.flip(img, 1)
+    h,w,c = img.shape
+    results = hands.process(img)
+
+
+    if results.multi_hand_landmarks:
+        for hand_landmark in results.multi_hand_landmarks:
+            # Acceder a los puntos de referencia por su posición
+            lm_list=[]
+            for id ,lm in enumerate(hand_landmark.landmark):
+                lm_list.append(lm)
+
+            # Matriz para almacenar "true" o "false" si el dedo está doblado
+            finger_fold_status =[]
+            for tip in finger_tips:
+                # Obtener el punto de referencia de la posición de la punta y dibujar un círculo azul
+                x,y = int(lm_list[tip].x*w), int(lm_list[tip].y*h)
+                cv2.circle(img, (x,y), 15, (255, 0, 0), cv2.FILLED)
+
+                # Escribiendo una condición para verificar si el dedo está doblado, 
+                # es decir, verificar si el valor inicial de la punta del dedo es menor que la posición inicial del dedo que es el punto de referencia interno del índice del dedo
+                # Si el dedo está doblado, cambiar el color a verde
+                if lm_list[tip].x < lm_list[tip - 3].x:
+                    cv2.circle(img, (x,y), 15, (0, 255, 0), cv2.FILLED)
+                    finger_fold_status.append(True)
+                else:
+                    finger_fold_status.append(False)
+
+            print(finger_fold_status)
+
+             # Verificar si todos los dedos están doblados
+            if all(finger_fold_status):
+                # Verificar si el pulgar está arriba
+                if lm_list[thumb_tip].y < lm_list[thumb_tip-1].y < lm_list[thumb_tip-2].y:
+                    print("Me gusta")  
+                    cv2.putText(img ,"Me gusta", (20,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 3)
+
+                # Verificar si el pulgar está abajo
+                if lm_list[thumb_tip].y > lm_list[thumb_tip-1].y > lm_list[thumb_tip-2].y:
+                    print("No me gusta")   
+                    cv2.putText(img ,"No me gusta", (20,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
+
+
+
+
+            mp_draw.draw_landmarks(img, hand_landmark,
+            mp_hands.HAND_CONNECTIONS, mp_draw.DrawingSpec((0,0,255),2,2),
+            mp_draw.DrawingSpec((0,255,0),4,2))
+    
+
+    cv2.imshow("Rastreo de manos", img)
+    cv2.waitKey(1)
+
+PROYECTO109_CapturasDePantallaConGestos
+Crea tu archivo .py
+
+import numpy as np
+import pyautogui
+import imutils
+import cv2
+import mediapipe as mp
+
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands()
+mp_draw = mp.solutions.drawing_utils
+cap = cv2.VideoCapture(0)
+
+finger_tips =[8, 12, 16, 20]
+thumb_tip= 4
+
+while True:
+    ret,img = cap.read()
+    img = cv2.flip(img, 1)
+    h,w,c = img.shape
+    results = hands.process(img)
+
+
+    if results.multi_hand_landmarks:
+        for hand_landmark in results.multi_hand_landmarks:
+            # Acceder a las marcas de referencia por su posición
+            lm_list=[]
+            for id ,lm in enumerate(hand_landmark.landmark):
+                lm_list.append(lm)
+
+            # Matriz para almacenar "True" o "False" si el dedo está doblado
+            finger_fold_status =[]
+            for tip in finger_tips:
+                # Obteniendo las marcas de referencia de las posición de las puntas y dibujando un círculo azul
+                x,y = int(lm_list[tip].x*w), int(lm_list[tip].y*h)
+                cv2.circle(img, (x,y), 15, (255, 0, 0), cv2.FILLED)
+
+                # Escribiendo una condición para verificar si el dedo está doblado, 
+                # es decir, si el valor inicial de la punta del dedo es menor que 
+                # la posición inicial del dedo, que es la marca de referencia interior.
+                # Para el índice del dedo, si el dedo está doblado, cambiar el color a verde
+                if lm_list[tip].x < lm_list[tip - 3].x:
+                    cv2.circle(img, (x,y), 15, (0, 255, 0), cv2.FILLED)
+                    finger_fold_status.append(True)
+                else:
+                    finger_fold_status.append(False)
+
+            print(finger_fold_status)
+
+             # Verificar si todos los dedos están doblados
+            if all(finger_fold_status):
+                # Tomar una captura de pantalla y almacenarla en la memorioa,
+                # luego convertir la imagen PIL/Pillow a un arreglo NumPy compatible con OpenCV.
+                # Finalmente, escribir la imagen en el disco
+                image = pyautogui.screenshot()
+                image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                cv2.imwrite("in_memory_to_disk.png", image)
+
+                # Esta vez, toma una captura de pantalla directamente al disco
+                pyautogui.screenshot("straight_to_disk.png")
+
+                # Entonces, podemos cargar nuestra captura de pantalla desde el disco en formato OpenCV
+                image = cv2.imread("straight_to_disk.png")
+                cv2.imshow("Captura de pantalla", imutils.resize(image, width=600))
+
+
+
+
+
+            mp_draw.draw_landmarks(img, hand_landmark,
+            mp_hands.HAND_CONNECTIONS, mp_draw.DrawingSpec((0,0,255),2,2),
+            mp_draw.DrawingSpec((0,255,0),4,2))
+    
+
+    cv2.imshow("Seguimiento de manos", img)
+    cv2.waitKey(1)
+
+PROYECTO_110_PiedraPapeloTijeras
+Crea tu archivo .py e incluye tu modelo Keras en el proyecto
+
+# Para capturar el fotograma
+import cv2
+
+# Para procesar la matriz de la imagen
+import numpy as np
+
+# Para cargar el modelo preentrenado
+import tensorflow as tf
+
+# Adjuntando el índice de la cámara como 0 con la aplicación del software
+camera = cv2.VideoCapture(0)
+
+# Cargando el modelo preentrenado: keras_model.h5
+mymodel = tf.keras.models.load_model('keras_model.h5')
+
+# Bucle infinito
+while True:
+
+	# Leyendo/Solicitando un fotograma de la cámara
+	status , frame = camera.read()
+
+	# Si somos capaces de leer exitosamente el fotograma
+	if status:
+
+		# Voltear la imagen
+		frame = cv2.flip(frame , 1)
+
+		# Redimensionar el fotograma
+		resized_frame = cv2.resize(frame , (224,224))
+
+		# Expandir las dimensiones de la matriz a lo largo del eje 0
+		resized_frame = np.expand_dims(resized_frame , axis = 0)
+
+		# Normalizar para facilitar el proceso
+		resized_frame = resized_frame / 255
+
+		# Obteniendo predicciones del modelo
+		predictions = mymodel.predict(resized_frame)
+
+		# Conviritiendo los datos de la matriz en porcentajes de confianza
+		rock = int(predictions[0][0]*100)
+		paper = int(predictions[0][1]*100)
+		scissor = int(predictions[0][2]*100)
+
+		# Imprimiendo los porcentajes de confianza
+		print(f"Piedra: {rock}%, Papel: {paper}%, Tijeras: {scissor}%")
+
+		# Mostrando los fotogramas capturados
+		cv2.imshow('Alimentar' , frame)
+
+		# Esperando 1ms
+		code = cv2.waitKey(1)
+		
+		# Si se preciona la barra espaciadora, romper el bucle
+		if code == 32:
+			break
+
+# Liberar la cámara de la aplicación del software
+camera.release()
+
+# Cerrar la ventana abierta
+cv2.destroyAllWindows()
+
+PROYECTIO_111_
